@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pageline — AI Landing Page Optimizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg:#0A101C;
+    --panel:#111A2C;
+    --panel-2:#0D1524;
+    --line: rgba(233,238,247,0.10);
+    --line-strong: rgba(233,238,247,0.22);
+    --text:#E9EEF7;
+    --text-dim: rgba(233,238,247,0.58);
+    --text-faint: rgba(233,238,247,0.36);
+    --teal:#4FD1C5;
+    --amber:#F5A623;
+    --rose:#EF5B5B;
+    --violet:#8B7FE8;
+    --display:'Sora', sans-serif;
+    --body:'IBM Plex Sans', sans-serif;
+    --mono:'IBM Plex Mono', monospace;
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  body{ background: radial-gradient(ellipse at top, #101B30 0%, #0A101C 55%); color: var(--text); font-family: var(--body); min-height:100vh; -webkit-font-smoothing:antialiased; }
+  ::selection{ background: var(--teal); color: #06110F; }
+  .hidden{ display:none !important; }
+  button{ font-family: var(--body); cursor:pointer; }
+  input, select{ font-family: var(--body); }
+
+  /* ---------- LOGIN ---------- */
+  #loginScreen{ min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; }
+  .login-card{ width:100%; max-width:420px; background: var(--panel); border:1px solid var(--line-strong); border-radius:10px; padding:38px 34px; position:relative; overflow:hidden; }
+  .login-card::before{ content:''; position:absolute; top:-60px; right:-60px; width:180px; height:180px; border-radius:50%; background: radial-gradient(circle, rgba(79,209,197,0.18), transparent 70%); }
+  .brand{ display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .brand-mark{ width:30px; height:30px; border-radius:7px; background: linear-gradient(135deg, var(--teal), var(--violet)); display:flex; align-items:center; justify-content:center; font-family: var(--display); font-weight:800; font-size:15px; color:#06110F; }
+  .brand-name{ font-family: var(--display); font-weight:700; font-size:19px; letter-spacing:-0.01em; }
+  .login-sub{ color: var(--text-dim); font-size:13.5px; margin: 6px 0 28px; }
+  .tabs{ display:flex; gap:4px; background: var(--panel-2); border-radius:8px; padding:4px; margin-bottom:24px; }
+  .tab{ flex:1; text-align:center; padding:9px 0; border:none; background:transparent; color: var(--text-dim); border-radius:6px; font-size:13px; font-weight:600; }
+  .tab.active{ background: var(--teal); color:#06110F; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-family: var(--mono); font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color: var(--text-faint); margin-bottom:8px; }
+  .field input{ width:100%; background: var(--panel-2); border:1px solid var(--line-strong); border-radius:7px; padding:12px 14px; color: var(--text); font-size:14.5px; }
+  .field input:focus{ outline:none; border-color: var(--teal); }
+  .btn-primary{ width:100%; background: var(--teal); color:#06110F; border:none; padding:13px; border-radius:7px; font-weight:700; font-size:14px; margin-top:6px; transition: transform .12s ease, background .12s ease; }
+  .btn-primary:hover{ background:#63e0d5; transform: translateY(-1px); }
+  .btn-ghost{ width:100%; background:transparent; color: var(--text-dim); border:1px solid var(--line-strong); padding:12px; border-radius:7px; font-size:13.5px; margin-top:10px; }
+  .btn-ghost:hover{ border-color: var(--teal); color: var(--teal); }
+  .login-error{ color: var(--rose); font-size:12.5px; margin-top:10px; display:none; font-family: var(--mono); }
+  .divider-txt{ text-align:center; font-family: var(--mono); font-size:11px; color: var(--text-faint); margin:18px 0 4px; letter-spacing:0.06em; }
+
+  /* ---------- APP SHELL ---------- */
+  #appScreen{ min-height:100vh; }
+  .topbar{ display:flex; align-items:center; justify-content:space-between; padding:18px 32px; border-bottom:1px solid var(--line); }
+  .topbar-right{ display:flex; align-items:center; gap:16px; }
+  .user-pill{ font-family: var(--mono); font-size:12px; color: var(--text-dim); border:1px solid var(--line-strong); padding:6px 12px; border-radius:20px; }
+  .btn-logout{ background:transparent; border:1px solid var(--line-strong); color: var(--text-dim); font-size:12px; padding:7px 14px; border-radius:6px; font-family: var(--mono); }
+  .btn-logout:hover{ border-color: var(--rose); color: var(--rose); }
+
+  .layout{ display:grid; grid-template-columns: 280px 1fr; min-height: calc(100vh - 65px); }
+  @media (max-width: 860px){ .layout{ grid-template-columns: 1fr; } .sidebar{ border-right:none; border-bottom:1px solid var(--line); } }
+
+  .sidebar{ border-right:1px solid var(--line); padding:26px 22px; }
+  .sidebar h4{ font-family: var(--mono); font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color: var(--text-faint); margin-bottom:14px; }
+  .history-item{ padding:12px; border-radius:7px; border:1px solid var(--line); margin-bottom:10px; cursor:pointer; transition: border-color .12s ease; }
+  .history-item:hover{ border-color: var(--teal); }
+  .history-item .h-name{ font-size:13.5px; font-weight:600; margin-bottom:3px; }
+  .history-item .h-meta{ font-family: var(--mono); font-size:10.5px; color: var(--text-faint); display:flex; justify-content:space-between; }
+  .history-empty{ color: var(--text-faint); font-size:12.5px; font-family: var(--mono); line-height:1.6; }
+
+  .main{ padding: 36px 40px 80px; max-width: 980px; }
+  .main h1{ font-family: var(--display); font-size: clamp(26px, 3vw, 34px); font-weight:700; letter-spacing:-0.01em; margin-bottom:8px; }
+  .main .lede{ color: var(--text-dim); font-size:14.5px; margin-bottom:30px; max-width:560px; }
+
+  .panel{ background: var(--panel); border:1px solid var(--line-strong); border-radius:10px; padding:28px; margin-bottom:26px; }
+  .form-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+  @media (max-width:640px){ .form-grid{ grid-template-columns:1fr; } }
+  .form-grid .field.full{ grid-column: 1 / -1; }
+  select#industry, select#goalType{ width:100%; background: var(--panel-2); border:1px solid var(--line-strong); border-radius:7px; padding:12px 14px; color: var(--text); font-size:14.5px; }
+
+  .analyze-footer{ display:flex; align-items:center; justify-content:space-between; margin-top:22px; flex-wrap:wrap; gap:14px; }
+  .btn-analyze{ background: linear-gradient(135deg, var(--teal), #37b8ab); color:#06110F; border:none; padding:13px 26px; border-radius:7px; font-weight:700; font-size:14px; }
+  .btn-analyze:hover{ filter: brightness(1.08); }
+  .btn-analyze:disabled{ opacity:.6; cursor:progress; }
+  .loading-txt{ font-family: var(--mono); font-size:12px; color: var(--text-dim); display:none; align-items:center; gap:8px; }
+  .spin{ width:13px; height:13px; border-radius:50%; border:2px solid rgba(233,238,247,0.2); border-top-color: var(--teal); animation: spin .7s linear infinite; }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+
+  /* ---------- REPORT ---------- */
+  #report{ display:none; }
+  .report-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:24px; }
+  .report-head h2{ font-family: var(--display); font-size:24px; font-weight:700; }
+  .btn-download{ background: var(--panel-2); border:1px solid var(--line-strong); color: var(--text); padding:11px 20px; border-radius:7px; font-size:13px; font-family: var(--mono); display:flex; align-items:center; gap:8px; }
+  .btn-download:hover{ border-color: var(--violet); color: var(--violet); }
+
+  .gauge-row{ display:grid; grid-template-columns: repeat(3, 1fr); gap:20px; margin-bottom:26px; }
+  @media (max-width:700px){ .gauge-row{ grid-template-columns:1fr; } }
+  .gauge-card{ background: var(--panel); border:1px solid var(--line-strong); border-radius:10px; padding:22px; text-align:center; }
+  .gauge-card .g-label{ font-family: var(--mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color: var(--text-faint); margin-top:12px; }
+  .gauge-card .g-score{ font-family: var(--display); font-weight:800; font-size:15px; margin-top:2px; }
+  .gauge-card .g-note{ font-size:11.5px; color: var(--text-dim); margin-top:6px; }
+
+  .section-grid{ display:grid; grid-template-columns: 1fr 1fr; gap:20px; }
+  @media (max-width:760px){ .section-grid{ grid-template-columns:1fr; } }
+  .rcard{ background: var(--panel); border:1px solid var(--line); border-radius:10px; padding:24px; }
+  .rcard.full{ grid-column: 1/-1; }
+  .rcard .r-eyebrow{ font-family: var(--mono); font-size:10.5px; letter-spacing:0.08em; text-transform:uppercase; color: var(--violet); margin-bottom:12px; }
+  .rcard h3{ font-family: var(--display); font-size:17px; font-weight:700; margin-bottom:14px; }
+
+  .headline-item{ border-left:2px solid var(--line-strong); padding: 4px 0 4px 14px; margin-bottom:14px; }
+  .headline-item:last-child{ margin-bottom:0; }
+  .headline-item .h-txt{ font-family: var(--display); font-size:15.5px; font-weight:600; margin-bottom:3px; }
+  .headline-item .h-why{ font-size:12.5px; color: var(--text-dim); }
+
+  .swatches{ display:flex; gap:10px; margin-bottom:14px; }
+  .swatch{ width:38px; height:38px; border-radius:8px; border:1px solid var(--line-strong); }
+  .color-note{ font-size:13px; color: var(--text-dim); line-height:1.6; }
+
+  .layout-pattern{ font-family: var(--mono); font-size:12px; color: var(--teal); border:1px solid var(--teal); display:inline-block; padding:5px 12px; border-radius:20px; margin-bottom:10px; }
+
+  ul.gap-list{ list-style:none; }
+  ul.gap-list li{ font-size:13.5px; color: var(--text-dim); padding: 9px 0; border-bottom:1px solid var(--line); display:flex; gap:10px; }
+  ul.gap-list li:last-child{ border-bottom:none; }
+  ul.gap-list li::before{ content:'—'; color: var(--rose); flex-shrink:0; }
+
+  .kw-cloud{ display:flex; flex-wrap:wrap; gap:8px; }
+  .kw{ font-family: var(--mono); font-size:11.5px; padding:5px 11px; border-radius:20px; border:1px solid var(--line-strong); color: var(--text-dim); }
+  .kw.top{ border-color: var(--teal); color: var(--teal); }
+
+  footer{ text-align:center; padding:30px; border-top:1px solid var(--line); }
+  footer p{ font-family: var(--mono); font-size:11px; color: var(--text-faint); letter-spacing:0.05em; }
+</style>
+</head>
+<body>
+
+<!-- ===================== LOGIN SCREEN ===================== -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="brand"><div class="brand-mark">P</div><div class="brand-name">Pageline</div></div>
+    <p class="login-sub">AI-powered landing page optimizer — scores, rewrites, and reports in seconds.</p>
+
+    <div class="tabs">
+      <button class="tab active" id="tabLogin">Log in</button>
+      <button class="tab" id="tabSignup">Sign up</button>
+    </div>
+
+    <div class="field">
+      <label for="loginEmail">Email</label>
+      <input type="text" id="loginEmail" placeholder="you@business.com" autocomplete="username">
+    </div>
+    <div class="field">
+      <label for="loginPass">Password</label>
+      <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div class="field hidden" id="signupNameField">
+      <label for="signupName">Your name</label>
+      <input type="text" id="signupName" placeholder="Jordan Rivera">
+    </div>
+
+    <button class="btn-primary" id="submitAuth">Log in</button>
+    <p class="login-error" id="loginError"></p>
+    <p class="login-error" id="setupNotice" style="color:var(--amber); display:none;"></p>
+
+    <p class="divider-txt">— or —</p>
+    <button class="btn-ghost" id="guestBtn">Continue as guest (local demo, not saved to cloud)</button>
+  </div>
+</div>
+
+<!-- ===================== APP SCREEN ===================== -->
+<div id="appScreen" class="hidden">
+  <div class="topbar">
+    <div class="brand"><div class="brand-mark">P</div><div class="brand-name">Pageline</div></div>
+    <div class="topbar-right">
+      <span class="user-pill" id="userPill">—</span>
+      <button class="btn-logout" id="logoutBtn">Log out</button>
+    </div>
+  </div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h4>Analysis history</h4>
+      <div id="historyList"><p class="history-empty">No analyses yet. Run your first one and it'll show up here.</p></div>
+    </aside>
+
+    <main class="main">
+      <h1>New landing page analysis</h1>
+      <p class="lede">Tell us about the page and audience. We'll score it and generate rewrite-ready recommendations.</p>
+
+      <div class="panel">
+        <div class="form-grid">
+          <div class="field">
+            <label for="bizName">Business name</label>
+            <input type="text" id="bizName" placeholder="e.g. Bloom Coffee Co.">
+          </div>
+          <div class="field">
+            <label for="industry">Industry</label>
+            <select id="industry">
+              <option>E-commerce / Retail</option>
+              <option>SaaS / Software</option>
+              <option>Health & Wellness</option>
+              <option>Food & Beverage</option>
+              <option>Finance</option>
+              <option>Education</option>
+              <option>Real Estate</option>
+              <option>Professional Services</option>
+              <option>Nonprofit</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="targetAudience">Target audience</label>
+            <input type="text" id="targetAudience" placeholder="e.g. First-time homebuyers, 28–45">
+          </div>
+          <div class="field">
+            <label for="goalType">Primary conversion goal</label>
+            <select id="goalType">
+              <option value="signups">Free trial / signups</option>
+              <option value="purchase" selected>Purchase / checkout</option>
+              <option value="leads">Lead form submission</option>
+              <option value="booking">Booking / appointment</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label for="pageUrl">Landing page URL (optional)</label>
+            <input type="text" id="pageUrl" placeholder="https://yoursite.com/landing">
+          </div>
+        </div>
+
+        <div class="analyze-footer">
+          <span style="font-family:var(--mono); font-size:11.5px; color:var(--text-faint);">Scoring runs locally — nothing is sent anywhere.</span>
+          <div style="display:flex; align-items:center; gap:14px;">
+            <span class="loading-txt" id="analyzeLoading"><span class="spin"></span>Scoring page…</span>
+            <button class="btn-analyze" id="analyzeBtn">Run analysis</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ REPORT ============ -->
+      <div id="report">
+        <div class="report-head">
+          <h2 id="reportTitle">Report</h2>
+          <button class="btn-download" id="downloadBtn">⬇ Download PDF report</button>
+        </div>
+
+        <div class="gauge-row" id="gaugeRow"></div>
+
+        <div class="section-grid">
+          <div class="rcard">
+            <div class="r-eyebrow">Headlines & CTAs</div>
+            <h3>Copy recommendations</h3>
+            <div id="headlinesBlock"></div>
+          </div>
+
+          <div class="rcard">
+            <div class="r-eyebrow">Visual design</div>
+            <h3>Color psychology</h3>
+            <div class="swatches" id="swatchRow"></div>
+            <p class="color-note" id="colorNote"></p>
+            <div class="layout-pattern" id="layoutPattern" style="margin-top:14px;"></div>
+            <p class="color-note" id="layoutNote"></p>
+          </div>
+
+          <div class="rcard">
+            <div class="r-eyebrow">Competitor gap</div>
+            <h3>What competitors do better</h3>
+            <ul class="gap-list" id="gapList"></ul>
+          </div>
+
+          <div class="rcard">
+            <div class="r-eyebrow">SEO</div>
+            <h3>Target keywords</h3>
+            <div class="kw-cloud" id="kwCloud"></div>
+          </div>
+
+          <div class="rcard full">
+            <div class="r-eyebrow">Accessibility</div>
+            <h3>Audit notes</h3>
+            <ul class="gap-list" id="a11yList"></ul>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<footer>
+  <p>PAGELINE — BUILT FOR THE MARKETING HACKATHON — TRACK 04: AI LANDING PAGE OPTIMIZER</p>
+</footer>
+
+<script>
+(function(){
+  /* ---------------- SUPABASE CONFIG ----------------
+     1. Create a free project at https://supabase.com
+     2. Project Settings -> API -> copy "Project URL" and "anon public" key below
+     3. In Authentication -> Providers -> Email, turn OFF "Confirm email"
+        for the hackathon demo (skips the email-verification step).
+     4. Run the SQL in the setup notes (see chat) to create the `reports` table.
+  --------------------------------------------------- */
+  const SUPABASE_URL = 'https://zmsggagxlzotrbmqntas.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_Q7r9sBsbQsv7IFSNEbqOEg_mMo4ZDHV';
+
+  const isConfigured = SUPABASE_URL.indexOf('YOUR_SUPABASE') === -1 && SUPABASE_ANON_KEY.indexOf('YOUR_SUPABASE') === -1;
+  let sb = null;
+  if(isConfigured && window.supabase){
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    const notice = document.getElementById('setupNotice');
+    notice.textContent = 'Backend not connected yet — add your Supabase URL/key in the script to enable real accounts. Guest mode still works.';
+    notice.style.display = 'block';
+  }
+
+  /* Local fallback store, used only for guest mode or if Supabase isn't configured */
+  const memStore = {};
+
+  /* ---------------- AUTH ---------------- */
+  let mode = 'login';
+  let currentUser = null;   // { id, email, name, guest: bool }
+
+  const tabLogin = document.getElementById('tabLogin');
+  const tabSignup = document.getElementById('tabSignup');
+  const signupNameField = document.getElementById('signupNameField');
+  const submitAuth = document.getElementById('submitAuth');
+  const loginError = document.getElementById('loginError');
+
+  tabLogin.addEventListener('click', () => setMode('login'));
+  tabSignup.addEventListener('click', () => setMode('signup'));
+
+  function setMode(m){
+    mode = m;
+    tabLogin.classList.toggle('active', m === 'login');
+    tabSignup.classList.toggle('active', m === 'signup');
+    signupNameField.classList.toggle('hidden', m === 'login');
+    submitAuth.textContent = m === 'login' ? 'Log in' : 'Create account';
+    loginError.style.display = 'none';
+  }
+
+  function showError(msg){
+    loginError.textContent = msg;
+    loginError.style.display = 'block';
+  }
+
+  submitAuth.addEventListener('click', async () => {
+    const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+    const pass = document.getElementById('loginPass').value;
+    loginError.style.display = 'none';
+
+    if(!email || !pass){ showError('Enter an email and password.'); return; }
+
+    if(!sb){
+      showError('Backend not connected — use "Continue as guest" for now, or add your Supabase keys.');
+      return;
+    }
+
+    submitAuth.disabled = true;
+    try{
+      if(mode === 'signup'){
+        const name = document.getElementById('signupName').value.trim() || email.split('@')[0];
+        const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { name } } });
+        if(error){ showError(error.message); return; }
+        if(data.user && !data.session){
+          showError('Account created — check your email to confirm, or disable "Confirm email" in Supabase for instant demo login.');
+          return;
+        }
+        await login({ id: data.user.id, email, name, guest: false });
+      } else {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+        if(error){ showError(error.message); return; }
+        const name = (data.user.user_metadata && data.user.user_metadata.name) || email.split('@')[0];
+        await login({ id: data.user.id, email, name, guest: false });
+      }
+    } finally {
+      submitAuth.disabled = false;
+    }
+  });
+
+  document.getElementById('guestBtn').addEventListener('click', async () => {
+    await login({ id: 'guest', email: 'guest@demo', name: 'Guest', guest: true });
+  });
+
+  async function login(user){
+    currentUser = user;
+    document.getElementById('loginScreen').classList.add('hidden');
+    document.getElementById('appScreen').classList.remove('hidden');
+    document.getElementById('userPill').textContent = user.name + ' · ' + (user.guest ? 'local demo' : user.email);
+    renderHistory();
+  }
+
+  document.getElementById('logoutBtn').addEventListener('click', async () => {
+    if(sb && currentUser && !currentUser.guest){ await sb.auth.signOut(); }
+    currentUser = null;
+    document.getElementById('appScreen').classList.add('hidden');
+    document.getElementById('loginScreen').classList.remove('hidden');
+    document.getElementById('report').style.display = 'none';
+  });
+
+  /* Restore session on load (Supabase persists its own session in the browser) */
+  (async () => {
+    if(!sb) return;
+    const { data } = await sb.auth.getSession();
+    if(data.session && data.session.user){
+      const u = data.session.user;
+      const name = (u.user_metadata && u.user_metadata.name) || u.email.split('@')[0];
+      await login({ id: u.id, email: u.email, name, guest: false });
+    }
+  })();
+
+  /* ---------------- ANALYSIS ENGINE ---------------- */
+  const STOPWORDS = new Set(['the','a','an','and','or','for','with','of','to','in','on','your','our']);
+
+  function hashSeed(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))>>>0; } return h; }
+  function pick(arr, seed){ return arr[seed % arr.length]; }
+  function clampScore(n){ return Math.max(28, Math.min(97, n)); }
+
+  const INDUSTRY_KEYWORDS = {
+    'E-commerce / Retail': ['free shipping','best sellers','limited stock','easy returns'],
+    'SaaS / Software': ['free trial','no credit card','integrations','automate workflow'],
+    'Health & Wellness': ['certified experts','personalized plan','results in weeks','book a consult'],
+    'Food & Beverage': ['small batch','locally sourced','order today','subscribe & save'],
+    'Finance': ['no hidden fees','secure & insured','get a quote','trusted by thousands'],
+    'Education': ['enroll today','flexible learning','accredited program','financial aid'],
+    'Real Estate': ['schedule a tour','pre-approval','new listings','neighborhood guide'],
+    'Professional Services': ['free consultation','proven results','case studies','get a quote'],
+    'Nonprofit': ['donate now','see your impact','volunteer today','monthly giving'],
+    'Other': ['learn more','get started','see how it works','join today']
+  };
+
+  const COLOR_SETS = {
+    'E-commerce / Retail': { hexes:['#E4634A','#F5A623','#1A1A1A','#FFFFFF'], note:'Warm, high-contrast palettes drive urgency and impulse action — reserve one bold accent strictly for the CTA so it doesn\'t compete with product imagery.' },
+    'SaaS / Software': { hexes:['#4F7DF5','#4FD1C5','#0D1524','#F4F6FB'], note:'Cool blues and teals read as trustworthy and technical. Keep the palette to two accents max so the CTA still stands out from UI chrome.' },
+    'Health & Wellness': { hexes:['#7A9B7E','#F5EFE0','#3D5A47','#FFFFFF'], note:'Muted greens and warm neutrals signal calm and care. Avoid saturated reds — they read as alarming in a wellness context.' },
+    'Food & Beverage': { hexes:['#C9622B','#F2E4C9','#3B2A1E','#FFFFFF'], note:'Earthy, appetizing tones increase perceived warmth and craft. Product photography should carry the color story more than UI elements.' },
+    'Finance': { hexes:['#1B3A5C','#2E7D6B','#F4F1EA','#FFFFFF'], note:'Deep blues and greens signal stability and trust — the two most-tested colors for financial conversion pages.' },
+    'Education': { hexes:['#5B4FE8','#F5A623','#1A1A1A','#FFFFFF'], note:'A confident primary with an energetic accent balances credibility with approachability for prospective students.' },
+    'Real Estate': { hexes:['#2E4A3D','#D4A24C','#F4F1EA','#1A1A1A'], note:'Warm neutrals with a gold accent read as aspirational and premium without feeling unaffordable.' },
+    'Professional Services': { hexes:['#1E293B','#4FD1C5','#F4F6FB','#FFFFFF'], note:'Restrained, low-saturation palettes build authority. Let typography, not color, carry most of the personality.' },
+    'Nonprofit': { hexes:['#E4634A','#2E7D6B','#F4F1EA','#1A1A1A'], note:'One warm, human accent against calm neutrals keeps focus on the cause rather than the design.' },
+    'Other': { hexes:['#4F7DF5','#F5A623','#1A1A1A','#FFFFFF'], note:'A confident primary paired with one warm accent covers most conversion-focused layouts safely.' }
+  };
+
+  const LAYOUT_PATTERNS = [
+    { name:'Z-Pattern', note:'Best for simple, single-offer pages — guides the eye from logo to headline to CTA in one visual sweep. Recommended given a single primary goal.' },
+    { name:'F-Pattern', note:'Better suited to content-dense pages with multiple sections — place the most persuasive proof points along the top-left reading zones.' }
+  ];
+
+  const HEADLINE_TEMPLATES = [
+    (biz, aud) => [`${biz}, Built for ${aud || 'People Who Expect More'}`, 'Leads with the specific audience — increases relevance and lowers bounce for qualified visitors.'],
+    (biz, aud) => [`Stop Losing Time. Start With ${biz}.`, 'Problem-first framing works well when the audience already feels the pain point.'],
+    (biz, aud) => [`The ${aud ? aud + '\u2019s' : 'Smarter'} Choice.`, 'Positions the product as the obvious pick for a defined segment rather than a generic benefit claim.']
+  ];
+  const CTA_BY_GOAL = {
+    signups: ['Start free trial', 'No credit card needed reduces signup friction — pair with this CTA for best results.'],
+    purchase: ['Shop the collection', 'Direct, action-oriented CTAs outperform vague ones like "Learn more" for purchase intent.'],
+    leads: ['Get my free quote', 'Framing the CTA around a tangible outcome increases form completion rates.'],
+    booking: ['Book a free consult', 'Removing perceived cost ("free") at the CTA moment reduces hesitation before booking.']
+  };
+
+  const GAP_POINTS = [
+    'Top competitors display trust badges (reviews, certifications) directly beside the CTA — this page has none visible above the fold.',
+    'Leading pages in this category load a testimonial or social proof element within the first screen; consider moving one up.',
+    'Competitors commonly show pricing or a clear next step within one scroll — reduces the "what happens next" hesitation.',
+    'Several top-performing pages in this space use a short explainer video near the hero — consider testing one.',
+    'Faster competitors show a visible guarantee or return policy near the CTA to lower purchase anxiety.'
+  ];
+
+  const A11Y_NOTES = [
+    'Ensure all CTA buttons have a minimum 4.5:1 contrast ratio against their background for readability.',
+    'Add descriptive alt text to product and hero images so screen readers convey their purpose, not just "image".',
+    'Confirm form fields have visible labels (not placeholder-only text), which disappear once a user starts typing.',
+    'Make sure interactive elements are reachable and clearly focus-highlighted via keyboard navigation alone.',
+    'Avoid conveying key information through color alone (e.g. red-only error states) — pair with an icon or text.'
+  ];
+
+  function buildScores(seed, goal){
+    const seo = clampScore(45 + (seed % 40));
+    const acc = clampScore(40 + ((seed >> 3) % 45));
+    const conv = clampScore(38 + ((seed >> 6) % 50));
+    return { seo, acc, conv };
+  }
+
+  function scoreColor(score){
+    if(score >= 75) return getComputedStyle(document.documentElement).getPropertyValue('--teal').trim();
+    if(score >= 50) return getComputedStyle(document.documentElement).getPropertyValue('--amber').trim();
+    return getComputedStyle(document.documentElement).getPropertyValue('--rose').trim();
+  }
+  function scoreLabel(score){
+    if(score >= 75) return 'Strong';
+    if(score >= 50) return 'Needs work';
+    return 'Critical';
+  }
+
+  function gaugeSVG(score, color){
+    const r = 46, c = 2*Math.PI*r;
+    const offset = c - (score/100)*c;
+    return `
+    <svg width="120" height="120" viewBox="0 0 120 120">
+      <circle cx="60" cy="60" r="${r}" fill="none" stroke="rgba(233,238,247,0.10)" stroke-width="10"/>
+      <circle cx="60" cy="60" r="${r}" fill="none" stroke="${color}" stroke-width="10" stroke-linecap="round"
+        stroke-dasharray="${c}" stroke-dashoffset="${c}" transform="rotate(-90 60 60)">
+        <animate attributeName="stroke-dashoffset" from="${c}" to="${offset}" dur="1s" fill="freeze" calcMode="spline" keySplines="0.22 1 0.36 1"/>
+      </circle>
+      <text x="60" y="66" text-anchor="middle" font-family="Sora, sans-serif" font-weight="800" font-size="26" fill="${color}">${score}</text>
+    </svg>`;
+  }
+
+  let currentAnalysis = null;
+
+  function buildLocalAnalysis(bizName, industry, audience, goal, url){
+    const seed = hashSeed(bizName + industry + audience + goal + url);
+    const scores = buildScores(seed, goal);
+    const colorSet = COLOR_SETS[industry] || COLOR_SETS['Other'];
+    const layout = pick(LAYOUT_PATTERNS, seed);
+    const ctaPair = CTA_BY_GOAL[goal];
+    const kws = INDUSTRY_KEYWORDS[industry] || INDUSTRY_KEYWORDS['Other'];
+    const headlines = [0,1,2].map(i => pick(HEADLINE_TEMPLATES, seed + i)(bizName, audience));
+    const rawGaps = [0,1,2].map(i => pick(GAP_POINTS, seed + i*3 + i));
+    const rawA11y = [0,1,2,3].map(i => pick(A11Y_NOTES, seed + i*5 + i));
+    const gaps = Array.from(new Set(rawGaps));
+    const a11y = Array.from(new Set(rawA11y));
+    return { bizName, industry, audience, goal, url, scores, colorSet, layout, ctaPair, kws, headlines, gaps, a11y, source: 'demo', date: new Date().toISOString() };
+  }
+
+  async function fetchAIAnalysis(bizName, industry, audience, goal, url){
+    if(!sb) throw new Error('Backend not connected');
+    const { data: sessionData } = await sb.auth.getSession();
+    const authToken = (sessionData.session && sessionData.session.access_token) || SUPABASE_ANON_KEY;
+
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/analyze`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+        'apikey': SUPABASE_ANON_KEY
+      },
+      body: JSON.stringify({ bizName, industry, audience, goal, url })
+    });
+
+    if(!resp.ok) throw new Error(`AI service returned ${resp.status}`);
+    const ai = await resp.json();
+    if(ai.error) throw new Error(ai.error);
+
+    return {
+      bizName, industry, audience, goal, url,
+      scores: { seo: ai.scores.seo, acc: ai.scores.accessibility, conv: ai.scores.conversion },
+      colorSet: { hexes: ai.colorHexes, note: ai.colorNote },
+      layout: { name: ai.layoutPattern, note: ai.layoutNote },
+      ctaPair: [ai.cta.text, ai.cta.why],
+      kws: ai.keywords,
+      headlines: ai.headlines.map(h => [h.text, h.why]),
+      gaps: ai.competitorGaps,
+      a11y: ai.accessibilityNotes,
+      source: 'ai',
+      date: new Date().toISOString()
+    };
+  }
+
+  async function runAnalysis(){
+    const bizName = document.getElementById('bizName').value.trim() || 'Your Business';
+    const industry = document.getElementById('industry').value;
+    const audience = document.getElementById('targetAudience').value.trim();
+    const goal = document.getElementById('goalType').value;
+    const url = document.getElementById('pageUrl').value.trim();
+
+    try{
+      currentAnalysis = await fetchAIAnalysis(bizName, industry, audience, goal, url);
+    }catch(err){
+      console.warn('AI analysis unavailable, using offline demo data:', err.message);
+      currentAnalysis = buildLocalAnalysis(bizName, industry, audience, goal, url);
+    }
+
+    renderReport(currentAnalysis);
+    await saveToHistory(currentAnalysis);
+  }
+
+  function renderReport(a){
+    document.getElementById('reportTitle').textContent = `${a.bizName} — Optimization Report`;
+    const dlBtn = document.getElementById('downloadBtn');
+    const existingBadge = document.getElementById('sourceBadge');
+    if(existingBadge) existingBadge.remove();
+    const badge = document.createElement('span');
+    badge.id = 'sourceBadge';
+    badge.style.cssText = 'font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border-radius:20px;margin-right:10px;';
+    if(a.source === 'ai'){
+      badge.style.color = 'var(--teal)'; badge.style.border = '1px solid var(--teal)';
+      badge.textContent = '✦ AI-generated';
+    } else {
+      badge.style.color = 'var(--text-faint)'; badge.style.border = '1px solid var(--line-strong)';
+      badge.textContent = 'Offline demo data';
+    }
+    dlBtn.parentNode.insertBefore(badge, dlBtn);
+
+    const gaugeRow = document.getElementById('gaugeRow');
+    const items = [
+      { label:'SEO Score', score:a.scores.seo },
+      { label:'Accessibility', score:a.scores.acc },
+      { label:'Conversion Potential', score:a.scores.conv }
+    ];
+    gaugeRow.innerHTML = items.map(it => {
+      const color = scoreColor(it.score);
+      return `<div class="gauge-card">${gaugeSVG(it.score, color)}<div class="g-label">${it.label}</div><div class="g-score" style="color:${color}">${scoreLabel(it.score)}</div></div>`;
+    }).join('');
+
+    const hb = document.getElementById('headlinesBlock');
+    hb.innerHTML = a.headlines.map(([txt, why]) => `<div class="headline-item"><div class="h-txt">${txt}</div><div class="h-why">${why}</div></div>`).join('')
+      + `<div class="headline-item" style="border-color:${scoreColor(a.scores.conv)}"><div class="h-txt">CTA: "${a.ctaPair[0]}"</div><div class="h-why">${a.ctaPair[1]}</div></div>`;
+
+    document.getElementById('swatchRow').innerHTML = a.colorSet.hexes.map(h => `<div class="swatch" style="background:${h}" title="${h}"></div>`).join('');
+    document.getElementById('colorNote').textContent = a.colorSet.note;
+    document.getElementById('layoutPattern').textContent = a.layout.name;
+    document.getElementById('layoutNote').textContent = a.layout.note;
+
+    document.getElementById('gapList').innerHTML = a.gaps.map(g => `<li>${g}</li>`).join('');
+    document.getElementById('a11yList').innerHTML = a.a11y.map(g => `<li>${g}</li>`).join('');
+    document.getElementById('kwCloud').innerHTML = a.kws.map((k,i) => `<span class="kw ${i===0?'top':''}">${i===0?'+ ':''}${k}</span>`).join('');
+
+    document.getElementById('report').style.display = 'block';
+    document.getElementById('report').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  async function saveToHistory(a){
+    if(sb && currentUser && !currentUser.guest){
+      const { error } = await sb.from('reports').insert({
+        user_id: currentUser.id,
+        biz_name: a.bizName,
+        analysis: a
+      });
+      if(error){ console.error('Supabase insert error:', error.message); }
+    } else {
+      // guest / no-backend fallback — local to this session only
+      const key = 'guestHistory';
+      const list = memStore[key] || [];
+      list.unshift(a);
+      memStore[key] = list.slice(0, 20);
+    }
+    renderHistory();
+  }
+
+  async function renderHistory(){
+    const el = document.getElementById('historyList');
+    let list = [];
+
+    if(sb && currentUser && !currentUser.guest){
+      const { data, error } = await sb.from('reports')
+        .select('analysis, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if(error){ console.error('Supabase fetch error:', error.message); }
+      else { list = data.map(r => r.analysis); }
+    } else {
+      list = memStore['guestHistory'] || [];
+    }
+
+    if(list.length === 0){
+      el.innerHTML = '<p class="history-empty">No analyses yet. Run your first one and it\'ll show up here.</p>';
+      return;
+    }
+    el.innerHTML = list.map((a, i) => `
+      <div class="history-item" data-idx="${i}">
+        <div class="h-name">${a.bizName}</div>
+        <div class="h-meta"><span>${a.industry}</span><span>${new Date(a.date).toLocaleDateString()}</span></div>
+      </div>`).join('');
+    el.querySelectorAll('.history-item').forEach(node => {
+      node.addEventListener('click', () => {
+        const idx = parseInt(node.getAttribute('data-idx'));
+        currentAnalysis = list[idx];
+        renderReport(currentAnalysis);
+      });
+    });
+  }
+
+  document.getElementById('analyzeBtn').addEventListener('click', function(){
+    const btn = this;
+    const loading = document.getElementById('analyzeLoading');
+    btn.disabled = true;
+    loading.style.display = 'flex';
+    setTimeout(async () => {
+      await runAnalysis();
+      loading.style.display = 'none';
+      btn.disabled = false;
+    }, 700);
+  });
+
+  /* ---------------- PDF EXPORT ---------------- */
+  document.getElementById('downloadBtn').addEventListener('click', () => {
+    if(!currentAnalysis){ return; }
+    const a = currentAnalysis;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'pt', format:'a4' });
+    const marginX = 48;
+    let y = 56;
+
+    doc.setFont('helvetica','bold'); doc.setFontSize(20);
+    doc.text(`${a.bizName} — Landing Page Optimization Report`, marginX, y, { maxWidth: 500 });
+    y += 26;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10); doc.setTextColor(100);
+    doc.text(`Industry: ${a.industry}   |   Audience: ${a.audience || 'Not specified'}   |   Generated: ${new Date(a.date).toLocaleString()}`, marginX, y, { maxWidth: 500 });
+    y += 26;
+
+    doc.setTextColor(20);
+    doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text('Scores', marginX, y); y += 18;
+    doc.setFont('helvetica','normal'); doc.setFontSize(11);
+    doc.text(`SEO: ${a.scores.seo}/100 (${scoreLabel(a.scores.seo)})`, marginX, y); y += 16;
+    doc.text(`Accessibility: ${a.scores.acc}/100 (${scoreLabel(a.scores.acc)})`, marginX, y); y += 16;
+    doc.text(`Conversion Potential: ${a.scores.conv}/100 (${scoreLabel(a.scores.conv)})`, marginX, y); y += 26;
+
+    function section(title, lines){
+      doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(title, marginX, y); y += 18;
+      doc.setFont('helvetica','normal'); doc.setFontSize(10.5);
+      lines.forEach(line => {
+        const split = doc.splitTextToSize(line, 500);
+        if(y + split.length*13 > 780){ doc.addPage(); y = 56; }
+        doc.text(split, marginX, y);
+        y += split.length*13 + 6;
+      });
+      y += 10;
+    }
+
+    section('Headline & CTA Recommendations', a.headlines.map(h => `• ${h[0]} — ${h[1]}`).concat([`• CTA: "${a.ctaPair[0]}" — ${a.ctaPair[1]}`]));
+    section('Color Psychology', [a.colorSet.note, `Suggested palette: ${a.colorSet.hexes.join(', ')}`]);
+    section('Layout Pattern', [`Recommended: ${a.layout.name}`, a.layout.note]);
+    section('Competitor Gap Analysis', a.gaps.map(g => `• ${g}`));
+    section('SEO Target Keywords', [a.kws.join(', ')]);
+    section('Accessibility Audit Notes', a.a11y.map(n => `• ${n}`));
+
+    doc.save(`${a.bizName.replace(/\s+/g,'-').toLowerCase()}-optimization-report.pdf`);
+  });
+})();
+</script>
+</body>
+</html>
